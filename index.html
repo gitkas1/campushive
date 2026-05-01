@@ -2809,14 +2809,28 @@
         const product = products.find(p => p.id == productId);
         if (product) {
             const title = product.title || product.name || 'Product';
-            const cartItem = {
-                ...product,
-                buyerId: currentUser.id,
-                boughtAt: new Date().toLocaleDateString()
-            };
-            cart.push(cartItem);
-            localStorage.setItem('cart', JSON.stringify(cart));
-            alert(`"${title}" added to cart! Check dashboard to finalize purchase.`);
+            
+            // Create order on backend
+            createOrderFromProduct(product);
+        }
+    }
+
+    async function createOrderFromProduct(product) {
+        const title = product.title || product.name || 'Product';
+        const seller = product.seller || product.seller_id || 'Unknown';
+        
+        const orderId = await createOrder(product.id, seller, {
+            name: title,
+            title: title,
+            price: product.price,
+            category: product.category,
+            quantity: 1
+        });
+
+        if (orderId) {
+            alert(`✅ Order created successfully!\n\nProduct: ${title}\nPrice: ₹${product.price.toLocaleString()}\n\nYou can track your order in the Dashboard.`);
+            // Reload orders
+            renderDashboard();
         }
     }
 
@@ -3041,6 +3055,9 @@
     }
 
     function renderDashboard() {
+        // Load orders from backend
+        loadAndRenderOrders();
+        
         // Buying cart
         const buyingList = document.getElementById('buying-list');
         if (!buyingList || !currentUser) return; // Safety check
@@ -3104,6 +3121,87 @@
 
         // Render incoming meeting requests (for sellers)
         renderIncomingMeetingRequests();
+    }
+
+    // ============================================
+    // 📦 ORDER FUNCTIONS
+    // ============================================
+
+    async function loadAndRenderOrders() {
+        const buyingListHTML = document.getElementById('buying-list');
+        if (!buyingListHTML || !currentUser) return;
+
+        // Show loading state
+        buyingListHTML.innerHTML = '<li style="text-align: center; color: #999; border: none;">Loading orders...</li>';
+
+        // Fetch orders from backend
+        const orders = await getMyOrders();
+
+        if (!orders || orders.length === 0) {
+            buyingListHTML.innerHTML = '<li style="text-align: center; color: #999; border: none;">No orders yet</li>';
+            return;
+        }
+
+        // Render orders
+        buyingListHTML.innerHTML = orders.map((order) => {
+            const statusColors = {
+                'pending': '#ffd700',
+                'confirmed': '#667eea',
+                'completed': '#27ae60',
+                'cancelled': '#e74c3c'
+            };
+            
+            const statusColor = statusColors[order.status] || '#999';
+            
+            return `
+                <li>
+                    <div class="product-info">
+                        <div class="product-name">${order.product_name || 'Product'}</div>
+                        <div style="font-size: 12px; color: #999;">
+                            Order #${order.order_id.substring(0, 8)}... | Status: <strong style="color: ${statusColor};">${order.status.toUpperCase()}</strong>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="product-price">₹${order.product_price.toLocaleString()}</div>
+                        <div>
+                            <button class="seller-details-btn" onclick="viewOrderDetails('${order.order_id}')">📋 Details</button>
+                            ${order.status === 'pending' ? `<button class="delete-btn" onclick="cancelOrderFromDashboard('${order.order_id}')">Cancel</button>` : ''}
+                        </div>
+                    </div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    async function viewOrderDetails(orderId) {
+        const order = await getOrderDetails(orderId);
+        if (!order) {
+            alert('Failed to load order details');
+            return;
+        }
+
+        const details = `
+📦 ORDER DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Order ID: ${order.order_id}
+Product: ${order.product_name}
+Price: ₹${order.product_price.toLocaleString()}
+Category: ${order.product_category}
+Status: ${order.status.toUpperCase()}
+Created: ${new Date(order.created_at).toLocaleString()}
+        `;
+        
+        alert(details);
+    }
+
+    async function cancelOrderFromDashboard(orderId) {
+        if (confirm('Are you sure you want to cancel this order?')) {
+            const success = await cancelOrder(orderId);
+            if (success) {
+                alert('✅ Order cancelled successfully');
+                renderDashboard();
+            }
+        }
     }
 
     function renderSentMeetingRequests() {
@@ -3502,15 +3600,7 @@
         }
         
         if (!currentDetailProduct) return;
-        const title = currentDetailProduct.title || currentDetailProduct.name || 'Product';
-        const cartItem = {
-            ...currentDetailProduct,
-            buyerId: currentUser.id,
-            boughtAt: new Date().toLocaleDateString()
-        };
-        cart.push(cartItem);
-        localStorage.setItem('cart', JSON.stringify(cart));
-        alert(`"${title}" added to cart! Check dashboard to finalize purchase.`);
+        createOrderFromProduct(currentDetailProduct);
         closeProductDetailModal();
     }
 
@@ -3617,16 +3707,7 @@
         }
 
         if (!currentPopupProduct) return;
-        
-        const title = currentPopupProduct.title || currentPopupProduct.name || 'Product';
-        const cartItem = {
-            ...currentPopupProduct,
-            buyerId: currentUser.id,
-            boughtAt: new Date().toLocaleDateString()
-        };
-        cart.push(cartItem);
-        localStorage.setItem('cart', JSON.stringify(cart));
-        alert(`"${title}" added to cart! Check dashboard to finalize purchase.`);
+        createOrderFromProduct(currentPopupProduct);
         closeProductInfoPopup();
     }
 

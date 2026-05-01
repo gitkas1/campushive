@@ -358,6 +358,165 @@ async function searchByPrice(minPrice, maxPrice) {
 }
 
 // ============================================
+// 📦 ORDER OPERATIONS
+// ============================================
+
+/**
+ * Create an order (checkout)
+ */
+async function createOrder(productId, sellerId, productData) {
+  try {
+    const token = await getFirebaseIdToken();
+    
+    if (!token) {
+      alert('Please login to create order');
+      return false;
+    }
+    
+    const result = await apiCall('/orders/create', 'POST', {
+      product_id: productId,
+      seller_id: sellerId,
+      product_data: productData
+    });
+    
+    if (result.success) {
+      console.log('✅ Order created:', result.order_id);
+      return result.order_id;
+    } else {
+      alert('Error: ' + result.error);
+      return null;
+    }
+  } catch (error) {
+    alert('Error creating order: ' + error.message);
+    return null;
+  }
+}
+
+/**
+ * Get my orders (as buyer)
+ */
+async function getMyOrders() {
+  try {
+    const token = await getFirebaseIdToken();
+    
+    if (!token) {
+      console.warn('No user logged in');
+      return [];
+    }
+    
+    const result = await apiCall('/orders/my-orders', 'GET');
+    
+    if (result.success) {
+      console.log('✅ My orders:', result.orders);
+      return result.orders;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error loading orders:', error);
+    return [];
+  }
+}
+
+/**
+ * Get my sold orders (as seller)
+ */
+async function getMySoldOrders() {
+  try {
+    const token = await getFirebaseIdToken();
+    
+    if (!token) {
+      console.warn('No user logged in');
+      return [];
+    }
+    
+    const result = await apiCall('/orders/sold-orders', 'GET');
+    
+    if (result.success) {
+      console.log('✅ Sold orders:', result.orders);
+      return result.orders;
+    }
+    return [];
+  } catch (error) {
+    console.error('Error loading sold orders:', error);
+    return [];
+  }
+}
+
+/**
+ * Get order details
+ */
+async function getOrderDetails(orderId) {
+  try {
+    const result = await apiCall(`/orders/${orderId}`, 'GET');
+    
+    if (result.success) {
+      console.log('✅ Order details:', result.order);
+      return result.order;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading order:', error);
+    return null;
+  }
+}
+
+/**
+ * Update order status
+ */
+async function updateOrderStatus(orderId, newStatus) {
+  try {
+    const token = await getFirebaseIdToken();
+    
+    if (!token) {
+      alert('Please login');
+      return false;
+    }
+    
+    const result = await apiCall(`/orders/${orderId}/status`, 'PUT', {
+      status: newStatus
+    });
+    
+    if (result.success) {
+      console.log('✅ Order status updated:', newStatus);
+      return true;
+    } else {
+      alert('Error: ' + result.error);
+      return false;
+    }
+  } catch (error) {
+    alert('Error: ' + error.message);
+    return false;
+  }
+}
+
+/**
+ * Cancel order
+ */
+async function cancelOrder(orderId) {
+  try {
+    const token = await getFirebaseIdToken();
+    
+    if (!token) {
+      alert('Please login');
+      return false;
+    }
+    
+    const result = await apiCall(`/orders/${orderId}/cancel`, 'DELETE');
+    
+    if (result.success) {
+      console.log('✅ Order cancelled');
+      return true;
+    } else {
+      alert('Error: ' + result.error);
+      return false;
+    }
+  } catch (error) {
+    alert('Error: ' + error.message);
+    return false;
+  }
+}
+
+// ============================================
 // ✅ API STATUS CHECK
 // ============================================
 
